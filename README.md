@@ -1,7 +1,8 @@
-# Adaptive Noise Assisted Conjugating Generative Model
+# Generative Model with Coordinate Metric Learning for Object Recognition Based on 3D Models
 TensorFlow implementation for Adaptive noise assisted Conjugating Generative Model based on Conditional Variational Autoencoder, this project is implemented based on VAE code pool of Parag K. Mital from Kadenze course on Tensorflow and modified by Yida Wang for the paper of 'Conjugating Generative Model for Object Recognition Based on 3D Models'.
 
-Copyright reserved for Yida Wang from BUPT.
+Copyright (c) 2017, Yida Wang
+All rights reserved.
 
 ## Figures in the paper
 ### Method Pipeline
