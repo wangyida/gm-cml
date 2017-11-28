@@ -31,7 +31,7 @@ def fire_module(layer_name, layer_input, s1x1, e1x1, e3x3):
 
     fire['e1'] = tf.nn.conv2d(fire['relu1'], e1_weight, strides=[1,1,1,1], padding='SAME')
     fire['e3'] = tf.nn.conv2d(fire['relu1'], e3_weight, strides=[1,1,1,1], padding='SAME')
-    fire['concat'] = tf.concat_v2([fire['e1'], fire['e3']], 3)
+    fire['concat'] = tf.concat([fire['e1'], fire['e3']], 3)
 
     fire['relu2'] = relu_layer(layer_name + '_relu2', fire['concat'], b=bias_variable([e1x1 + e3x3]))
 
@@ -53,9 +53,9 @@ def zigzag_module(layer_name, layer_input, s1x1, e1x1, e3x3):
 
     zigzag['e1'] = tf.nn.conv2d(zigzag['relu1'], e1_weight, strides=[1,1,1,1], padding='SAME')
     zigzag['e3'] = tf.nn.conv2d(zigzag['relu1'], e3_weight, strides=[1,1,1,1], padding='SAME')
-    zigzag['concat1'] = tf.concat_v2([zigzag['e1'], zigzag['e3']], 3)
+    zigzag['concat1'] = tf.concat([zigzag['e1'], zigzag['e3']], 3)
     zigzag['b1'] = tf.nn.conv2d(layer_input, b1_weight, strides=[1,1,1,1], padding='SAME')
-    zigzag['concat2'] = tf.concat_v2([zigzag['concat1'], zigzag['b1']], 3)
+    zigzag['concat2'] = tf.concat([zigzag['concat1'], zigzag['b1']], 3)
     zigzag['relu2'] = relu_layer(layer_name + '_relu2', zigzag['concat2'],
                                b=bias_variable([2*(e1x1+e3x3)]))
 

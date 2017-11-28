@@ -11,13 +11,15 @@ learninig for classifcation.
 Copyright reserved for Yida Wang from BUPT.
 """
 
+import matplotlib
+matplotlib.use('Agg')
 import os
 import tensorflow as tf
 import numpy as np
-import sys
 import csv
+import matplotlib.pyplot as plt
+from pca import pca
 from libs.dataset_utils import create_input_pipeline
-from libs.datasets import CELEB, MNIST
 from libs.batch_norm import batch_norm
 from libs import utils
 from network import squeezenet
@@ -26,6 +28,7 @@ slim = tf.contrib.slim
 from tensorflow.contrib.slim.python.slim.nets import alexnet
 from tensorflow.contrib.slim.python.slim.nets import inception
 from tensorflow.contrib.slim.python.slim.nets import vgg
+
 
 def VAE(input_shape=[None, 784],
         n_filters=[64, 64, 64],
@@ -111,16 +114,16 @@ def VAE(input_shape=[None, 784],
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     corrupt_rec = tf.placeholder(tf.float32, name='corrupt_rec')
     corrupt_cls = tf.placeholder(tf.float32, name='corrupt_cls')
-    x_label = tf.placeholder(tf.int32, [None,1], 'x_label')
+    x_label = tf.placeholder(tf.int32, [None, 1], 'x_label')
 
     # input of the reconstruction network
     # np.tanh(2) = 0.964
     current_input1 = utils.corrupt(x_img)*corrupt_rec + x_img*(1-corrupt_rec) \
-                if (denoising and phase_train is not None) else x_img
+        if (denoising and phase_train is not None) else x_img
     current_input1.set_shape(x_img.get_shape())
     # 2d -> 4d if convolution
     current_input1 = utils.to_tensor(current_input1) \
-                if convolutional else current_input1
+        if convolutional else current_input1
 
     Ws = []
     shapes = []
@@ -162,7 +165,8 @@ def VAE(input_shape=[None, 784],
             z_log_sigma = 0.5 * utils.linear(h, n_code, name='log_sigma')[0]
             # modified by yidawang
             # s, u, v = tf.svd(z_log_sigma)
-            # z_log_sigma = tf.matmul(tf.matmul(u, tf.diag(s)), tf.transpose(v))
+            # z_log_sigma = tf.matmul(
+            #        tf.matmul(u, tf.diag(s)), tf.transpose(v))
             # end yidawang
 
             # Sample from noise distribution p(eps) ~ N(0, 1)
@@ -254,26 +258,28 @@ def VAE(input_shape=[None, 784],
 
         # Input of the classification network
         current_input2 = utils.corrupt(x_img)*corrupt_cls + \
-                     x_img*(1-corrupt_cls) \
-                     if (denoising and phase_train is True) else x_img
+            x_img*(1-corrupt_cls) \
+            if (denoising and phase_train is True) else x_img
         current_input2.set_shape(x_img.get_shape())
         current_input2 = utils.to_tensor(current_input2) \
-                    if convolutional else current_input2
+            if convolutional else current_input2
 
         y_concat = tf.concat([current_input2, y], 3)
         with tf.variable_scope('deconv/concat'):
             shape = shapes[layer_i + 1]
             if convolutional:
-        # Here we set the input of classification network is the twice of
-        # the input of the reconstruction network
-        # 112->224 for alexNet and 150->300 for inception v3 and v4
-                y_concat, W = utils.deconv2d(x=y_concat,
-                                          n_output_h=y_concat.get_shape()[1]*2,
-                                          n_output_w=y_concat.get_shape()[1]*2,
-                                          n_output_ch=y_concat.get_shape()[3],
-                                          n_input_ch=y_concat.get_shape()[3],
-                                          k_h=3,
-                                          k_w=3)
+                # Here we set the input of classification network is
+                # the twice of
+                # the input of the reconstruction network
+                # 112->224 for alexNet and 150->300 for inception v3 and v4
+                y_concat, W = utils.deconv2d(
+                        x=y_concat,
+                        n_output_h=y_concat.get_shape()[1]*2,
+                        n_output_w=y_concat.get_shape()[1]*2,
+                        n_output_ch=y_concat.get_shape()[3],
+                        n_input_ch=y_concat.get_shape()[3],
+                        k_h=3,
+                        k_w=3)
                 Ws.append(W)
 
         # The following are optional networks for classification network
@@ -419,7 +425,7 @@ def train_vae(files_img,
     Checkpoints will be named as this, e.g. 'model.ckpt'
     """
     tf.set_random_seed(1)
-    seed=1
+    seed = 1
     batch_obj, batch_label_o = create_input_pipeline(
         files=files_obj,
         batch_size=batch_size,
@@ -469,7 +475,6 @@ def train_vae(files_img,
             seed=seed,
             type_input=type_input)
 
-
     ae = VAE(input_shape=[None] + crop_shape,
              denoising=denoising,
              convolutional=convolutional,
@@ -484,8 +489,8 @@ def train_vae(files_img,
              classifier=classifier)
 
     if (type_input == 'csv_path' or type_input == 'csv_feature'):
-        with open(files_img,"r") as f:
-            reader = csv.reader(f,delimiter = ",")
+        with open(files_img, "r") as f:
+            reader = csv.reader(f, delimiter=",")
             data = list(reader)
             n_files = len(data)
     else:
@@ -578,45 +583,48 @@ def train_vae(files_img,
     utils.montage(test_xs_img, 'train_img.png')
 
     # Test samples of testing data from ImageNet
-    test_imagenet_img, test_imagenet_label = \
-                        sess.run([batch_imagenet, batch_imagenet_label])
+    test_imagenet_img, test_imagenet_label = sess.run(
+            [batch_imagenet, batch_imagenet_label])
     test_imagenet_img /= 255.0
     utils.montage(test_imagenet_img, 'test_imagenet_img.png')
 
     # Test samples of testing data from PASCAL 2012
-    test_pascal_img, test_pascal_label = \
-                        sess.run([batch_pascal, batch_pascal_label])
+    test_pascal_img, test_pascal_label = sess.run(
+            [batch_pascal, batch_pascal_label])
     test_pascal_img /= 255.0
     utils.montage(test_pascal_img, 'test_pascal_img.png')
 
     # Test samples of testing data from ShapeNet test data
-    test_shapenet_img, test_shapenet_label = \
-                        sess.run([batch_shapenet, batch_shapenet_label])
+    test_shapenet_img, test_shapenet_label = sess.run(
+            [batch_shapenet, batch_shapenet_label])
     test_shapenet_img /= 255.0
     utils.montage(test_shapenet_img, 'test_shapenet_img.png')
     try:
         while not coord.should_stop():
             batch_i += 1
             step_i += 1
-            batch_xs_img, batch_xs_label = sess.run([batch_img, batch_label_i])
+            batch_xs_img, batch_xs_label = sess.run(
+                    [batch_img, batch_label_i])
             batch_xs_img /= 255.0
-            batch_xs_obj, batch_xs_label2 = sess.run([batch_obj, batch_label_o])
+            batch_xs_obj, batch_xs_label2 = sess.run(
+                    [batch_obj, batch_label_o])
             batch_xs_obj /= 255.0
-            #import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             assert batch_xs_label.all() == batch_xs_label2.all()
 
             # Here we must set corrupt_rec and corrupt_cls as 0 to find a
             # proper ratio of variance to feed for variable var_prob.
             # We use tanh as non-linear function for ratio of Vars from
             # the reconstructed channels and original channels
-            var_prob = sess.run(ae['var_prob'],
-                        feed_dict={
-                            ae['x_img']: test_xs_img,
-                            ae['x_label']: test_xs_label,
-                            ae['train']: True,
-                            ae['keep_prob']: 1.0,
-                            ae['corrupt_rec']: 0,
-                            ae['corrupt_cls']: 0})
+            var_prob = sess.run(
+                    ae['var_prob'],
+                    feed_dict={
+                        ae['x_img']: test_xs_img,
+                        ae['x_label']: test_xs_label,
+                        ae['train']: True,
+                        ae['keep_prob']: 1.0,
+                        ae['corrupt_rec']: 0,
+                        ae['corrupt_cls']: 0})
 
             # Here is a fast training process
             corrupt_rec = np.tanh(0.25*var_prob)
@@ -711,27 +719,48 @@ def train_vae(files_img,
                         sm_imagenet = sm_codes
                         labels_imagenet = test_label
                         # Plot example reconstructions
-                        recon = sess.run(ae['y'],
-                                    feed_dict={
-                                        ae['x_img']: test_imagenet_img,
-                                        ae['train']: False,
-                                        ae['keep_prob']: 1.0,
-                                        ae['corrupt_rec']: 0,
-                                        ae['corrupt_cls']: 0})
+                        recon = sess.run(
+                                ae['y'],
+                                feed_dict={
+                                    ae['x_img']: test_imagenet_img,
+                                    ae['train']: False,
+                                    ae['keep_prob']: 1.0,
+                                    ae['corrupt_rec']: 0,
+                                    ae['corrupt_cls']: 0})
                         utils.montage(recon.reshape([-1] + crop_shape),
                                       'recon_imagenet_%08d.png' % t_i)
                     else:
                         z_imagenet = np.append(z_imagenet, z_codes, axis=0)
                         sm_imagenet = np.append(sm_imagenet, sm_codes, axis=0)
-                        labels_imagenet = np.append(labels_imagenet, test_label,
-                                                    axis=0)
-                if variational:
-                    mat = np.append(labels_imagenet, z_imagenet, axis=1)
-                    np.save('feat_imagenet_z_%08d.npy' % t_i, mat)
-                mat = np.append(labels_imagenet, sm_imagenet, axis=1)
-                np.save('feat_imagenet_sm_%08d.npy' % t_i, mat)
+                        labels_imagenet = np.append(
+                                labels_imagenet,
+                                test_label,
+                                axis=0)
                 accumulated_acc /= num_batches
                 print("Accuracy of ImageNet images= %.3f" % (accumulated_acc))
+
+                fig = plt.figure()
+                z_viz, V = pca(z_imagenet, dim_remain=2)
+                ax = fig.add_subplot(121)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        z_viz[:, 0],
+                        z_viz[:, 1],
+                        c=labels_imagenet,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+                sm_viz, V = pca(sm_imagenet, dim_remain=2)
+                ax = fig.add_subplot(122)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        sm_viz[:, 0],
+                        sm_viz[:, 1],
+                        c=labels_imagenet,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+
+                fig.savefig('./z_feat_imagenet.png', transparent=True)
+                plt.clf()
 
                 # Test on PASCAL 2012 samples
                 with open('../list_annotated_pascal.csv', 'r') as csvfile:
@@ -759,13 +788,14 @@ def train_vae(files_img,
                         sm_pascal = sm_codes
                         labels_pascal = test_label
                         # Plot example reconstructions
-                        recon = sess.run(ae['y'],
-                                    feed_dict={
-                                        ae['x_img']: test_pascal_img,
-                                        ae['train']: False,
-                                        ae['keep_prob']: 1.0,
-                                        ae['corrupt_rec']: 0,
-                                        ae['corrupt_cls']: 0})
+                        recon = sess.run(
+                                ae['y'],
+                                feed_dict={
+                                    ae['x_img']: test_pascal_img,
+                                    ae['train']: False,
+                                    ae['keep_prob']: 1.0,
+                                    ae['corrupt_rec']: 0,
+                                    ae['corrupt_cls']: 0})
                         utils.montage(recon.reshape([-1] + crop_shape),
                                       'recon_pascal_%08d.png' % t_i)
                     else:
@@ -773,13 +803,31 @@ def train_vae(files_img,
                         sm_pascal = np.append(sm_pascal, sm_codes, axis=0)
                         labels_pascal = np.append(labels_pascal, test_label,
                                                   axis=0)
-                if variational:
-                    mat = np.append(labels_pascal, z_pascal, axis=1)
-                    np.save('feat_pascal_z_%08d.npy' % t_i, mat)
-                mat = np.append(labels_pascal, sm_pascal, axis=1)
-                np.save('feat_pascal_sm_%08d.npy' % t_i, mat)
                 accumulated_acc /= num_batches
                 print("Accuracy of PASCAL images= %.3f" % (accumulated_acc))
+
+                fig = plt.figure()
+                z_viz, V = pca(z_pascal, dim_remain=2)
+                ax = fig.add_subplot(121)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        z_viz[:, 0],
+                        z_viz[:, 1],
+                        c=labels_pascal,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+                sm_viz, V = pca(sm_pascal, dim_remain=2)
+                ax = fig.add_subplot(122)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        sm_viz[:, 0],
+                        sm_viz[:, 1],
+                        c=labels_pascal,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+
+                fig.savefig('./z_feat_pascal.png', transparent=True)
+                plt.clf()
 
                 # Test on ShapeNet test samples
                 with open('../list_annotated_img_test.csv', 'r') as csvfile:
@@ -821,13 +869,31 @@ def train_vae(files_img,
                         sm_shapenet = np.append(sm_shapenet, sm_codes, axis=0)
                         labels_shapenet = np.append(labels_shapenet, test_label,
                                                     axis=0)
-                if variational:
-                    mat = np.append(labels_shapenet, z_shapenet, axis=1)
-                    np.save('feat_shapenet_z_%08d.npy' % t_i, mat)
-                mat = np.append(labels_shapenet, sm_shapenet, axis=1)
-                np.save('feat_shapenet_sm_%08d.npy' % t_i, mat)
                 accumulated_acc /= num_batches
                 print("Accuracy of ShapeNet images= %.3f" % (accumulated_acc))
+
+                fig = plt.figure()
+                z_viz, V = pca(z_shapenet, dim_remain=2)
+                ax = fig.add_subplot(121)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        z_viz[:, 0],
+                        z_viz[:, 1],
+                        c=labels_shapenet,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+                sm_viz, V = pca(sm_shapenet, dim_remain=2)
+                ax = fig.add_subplot(122)
+                # ax.set_aspect('equal')
+                ax.scatter(
+                        sm_viz[:, 0],
+                        sm_viz[:, 1],
+                        c=labels_shapenet,
+                        alpha=0.9,
+                        cmap='gist_rainbow')
+
+                fig.savefig('./z_feat_shapenet.png', transparent=True)
+                plt.clf()
 
                 t_i += 1
 
@@ -838,14 +904,15 @@ def train_vae(files_img,
                            global_step=step_i,
                            write_meta_graph=False)
                 if softmax:
-                    acc = sess.run(ae['acc'],
-                                feed_dict={
-                                    ae['x_img']: test_xs_img,
-                                    ae['x_label']: test_xs_label,
-                                    ae['train']: False,
-                                    ae['keep_prob']: 1.0,
-                                    ae['corrupt_rec']: 0,
-                                    ae['corrupt_cls']: 0})
+                    acc = sess.run(
+                            ae['acc'],
+                            feed_dict={
+                                ae['x_img']: test_xs_img,
+                                ae['x_label']: test_xs_label,
+                                ae['train']: False,
+                                ae['keep_prob']: 1.0,
+                                ae['corrupt_rec']: 0,
+                                ae['corrupt_cls']: 0})
 
                     print("epoch %d: VAE = %d, SM = %.3f, Acc = %.3f, R_Var = %.3f, Cpt_R = %.3f, Cpt_C = %.3f" %
                           (epoch_i,
@@ -857,8 +924,9 @@ def train_vae(files_img,
                           corrupt_cls))
 
                     # Summary recording to Tensorboard
-                    summary = sess.run(ae['merged'],
-                                feed_dict={
+                    summary = sess.run(
+                            ae['merged'],
+                            feed_dict={
                                     ae['x_img']: batch_xs_img,
                                     ae['x_obj']: batch_xs_obj,
                                     ae['x_label']: batch_xs_label,
@@ -888,6 +956,7 @@ def train_vae(files_img,
 
     # Clean up the session.
     sess.close()
+
 
 if __name__ == '__main__':
     test_celeb()

@@ -35,7 +35,7 @@ class ScanFile(object):
         return subdir_list
 
 if __name__=="__main__":
-    dir=r"/Users/yidawang/Documents/database/real_annotated/annotated_pascal"
+    dir=r"/Users/yidawang/Documents/database/Pascal"
     scan=ScanFile(dir)
     subdirs=scan.scan_subdir()
     files=scan.scan_files()
@@ -45,6 +45,7 @@ if __name__=="__main__":
         print subdir
 
     file_object = open('list_annotated_pascal.csv', 'w')
+
     # shuffle the list
     random.seed(1)
     random.shuffle(files)
