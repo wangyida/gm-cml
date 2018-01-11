@@ -27,7 +27,6 @@ from network import squeezenet
 slim = tf.contrib.slim
 from tensorflow.contrib.slim.python.slim.nets import alexnet
 from tensorflow.contrib.slim.python.slim.nets import inception
-from tensorflow.contrib.slim.python.slim.nets import vgg
 
 
 def VAE(input_shape=[None, 784],
@@ -253,7 +252,7 @@ def VAE(input_shape=[None, 784],
     if softmax:
         axis = list(range(len(x.get_shape())))
         mean1, variance1 = tf.nn.moments(t, axis) \
-                        if (phase_train is True) else tf.nn.moments(x, axis)
+            if (phase_train is True) else tf.nn.moments(x, axis)
         mean2, variance2 = tf.nn.moments(y, axis)
         var_prob = variance2/variance1
 
@@ -422,7 +421,7 @@ def train_vae(files,
     ckpt_name : str, optional
     Checkpoints will be named as this, e.g. 'model.ckpt'
     """
-    
+
     batch_train = create_input_pipeline(
         files=files,
         batch_size=batch_size,
@@ -826,8 +825,9 @@ def train_vae(files,
                         sm_shapenet = sm_codes
                         labels_shapenet = test_label
                         # Plot example reconstructions
-                        recon = sess.run(ae['y'],
-                                    feed_dict={
+                        recon = sess.run(
+                                ae['y'],
+                                feed_dict={
                                         ae['x']: test_shapenet_img,
                                         ae['train']: False,
                                         ae['keep_prob']: 1.0,
@@ -838,8 +838,10 @@ def train_vae(files,
                     else:
                         z_shapenet = np.append(z_shapenet, z_codes, axis=0)
                         sm_shapenet = np.append(sm_shapenet, sm_codes, axis=0)
-                        labels_shapenet = np.append(labels_shapenet, test_label,
-                                                    axis=0)
+                        labels_shapenet = np.append(
+                                labels_shapenet,
+                                test_label,
+                                axis=0)
                 accumulated_acc /= num_batches
                 print("Accuracy of ShapeNet images= %.3f" % (accumulated_acc))
 

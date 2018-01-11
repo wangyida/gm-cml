@@ -1,26 +1,10 @@
 # First check the Python version
-import csv
 
 # Now get necessary libraries
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from skimage.transform import resize
-from skimage import data
-from scipy.misc import imresize
-import IPython.display as ipyd
-from libs import utils, gif, datasets, dataset_utils, vae, dft
+from libs import vae
 
 # Import Tensorflow
-try:
-    import tensorflow as tf
-except ImportError:
-    print("You do not have tensorflow installed!")
-    print("Follow the instructions on the following link")
-    print("to install tensorflow before continuing:")
-    print("")
-    print("https://github.com/pkmital/CADL#installation-preliminaries")
+import tensorflow as tf
 
 # This cell includes the provided libraries from the zip file
 # and a library for displaying images from ipython, which
