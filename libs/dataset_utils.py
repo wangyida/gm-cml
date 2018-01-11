@@ -10,10 +10,11 @@ import pickle
 import numpy as np
 import tensorflow as tf
 from . import dft
+#from .utils import download_and_extract_tar
 
 
-def create_input_pipeline(files, batch_size, n_epochs, shape, crop_shape=None,
-                          crop_factor=None, n_threads=1, seed=1, type_input='csv_path'):
+def create_input_pipeline(files, batch_size, n_epochs, input_shape, output_shape, crop_shape=None,
+                          crop_factor=1.0, n_threads=4, seed=1, shuffle=True):
     """Creates a pipefile from a list of image files.
     Includes batch generator/central crop/resizing options.
     The resulting generator will dequeue the images batch_size at a time until
@@ -36,7 +37,20 @@ def create_input_pipeline(files, batch_size, n_epochs, shape, crop_shape=None,
         Percentage of image to take starting from center.
     n_threads : int, optional
         Number of threads to use for batch shuffling
+    seed : int, optional
+        Seed for generating batches.
+    type_input : string, optional
+        Input type for the fed data.
     """
+
+    # We'll centrally crop the image to the size of 100x100.
+    # This operation required explicit knowledge of the image's shape.
+    if input_shape[0] > input_shape[1]:
+        rsz_shape = [int(input_shape[0] / input_shape[1] * crop_shape[0] / crop_factor),
+                     int(crop_shape[1] / crop_factor)]
+    else:
+        rsz_shape = [int(crop_shape[0] / crop_factor),
+                     int(input_shape[1] / input_shape[0] * crop_shape[1] / crop_factor)]
 
     # We first create a "producer" queue.  It creates a production line which
     # will queue up the file names and allow another queue to deque the file
@@ -44,85 +58,52 @@ def create_input_pipeline(files, batch_size, n_epochs, shape, crop_shape=None,
     # Put simply, this is the entry point of the computational graph.
     # It will generate the list of file names.
     # We also specify it's capacity beforehand.
-    if type_input == 'csv_path':
-        filename_queue = tf.train.string_input_producer(
-            [files], shuffle=False, seed=seed)
-        reader = tf.TextLineReader()
-        _, csv_content = reader.read(filename_queue)
-        record_defaults = [[""], [1]]
-        img_path, img_cat_temp = tf.decode_csv(
-            csv_content, record_defaults = record_defaults, field_delim=",")
-        img_cat = tf.stack([img_cat_temp])
-        imgs = tf.image.decode_jpeg(tf.read_file(img_path),
-            channels=3 if len(shape) > 2 and shape[2] == 3 else 0)
+    producer = tf.train.string_input_producer(
+        [files], shuffle=False, seed=seed)
 
-    elif type_input == 'csv_featrue':
-        filename_queue = tf.train.string_input_producer(
-            [files], shuffle=False, seed=seed)
-        reader = tf.TextLineReader()
-        _, csv_content = reader.read(filename_queue)
-        record_defaults = [[0.0]]*766
-        columns = tf.decode_csv(
-            csv_content, record_defaults = record_defaults, field_delim=",")
-        img_cat = tf.stack([columns[2]])
-        imgs = tf.stack(columns)
+    # We need something which can read line by line.
+    reader = tf.TextLineReader()
 
-    else:
-        producer = tf.train.string_input_producer(
-            [files], capacity=len(files), shuffle=True, seed=seed)
-
-        # We need something which can open the files and read its contents.
-        reader = tf.WholeFileReader()
-
-        # We pass the filenames to this object which can read the file's contents.
-        # This will create another queue running which dequeues the previous queue.
-        keys, vals = reader.read(producer)
-
-        # And then have to decode its contents as we know it is a jpeg image
-        imgs = tf.image.decode_jpeg(
-            vals,
-            channels=3 if len(shape) > 2 and shape[2] == 3 else 0)
+    # We pass the filenames to this object which can read the file's contents.
+    # This will create another queue running which dequeues the previous queue.
+    keys, vals = reader.read(producer)
+    # record_defaults = [[""], [""], [1]]
+    cat_labels = 1 # 40 for celeba
+    record_defaults = [[1]] * (2 + cat_labels)
+    record_defaults[0] = [""]
+    record_defaults[1] = [""]
+    decoded = tf.decode_csv(
+            vals, record_defaults=record_defaults, field_delim=",")
+    src_path = decoded[0]
+    tar_path = decoded[1]
+    lable_temp = decoded[2]
+    label = tf.stack([lable_temp])
+    imgs_src = tf.image.decode_image(
+            tf.read_file(src_path),
+            channels=input_shape[2]
+            if len(input_shape) > 2 and input_shape[2] > 0 else 0)
+    imgs_tar = tf.image.decode_image(
+            tf.read_file(tar_path),
+            channels=output_shape[2]
+            if len(output_shape) > 2 and output_shape[2] > 0 else 0)
 
     # We have to explicitly define the shape of the tensor.
     # This is because the decode_jpeg operation is still a node in the graph
     # and doesn't yet know the shape of the image.  Future operations however
     # need explicit knowledge of the image's shape in order to be created.
-    imgs.set_shape(shape)
+    imgs_src.set_shape(input_shape)
+    imgs_tar.set_shape(output_shape)
 
-    # Next we'll centrally crop the image to the size of 100x100.
-    # This operation required explicit knowledge of the image's shape.
-    if shape[0] > shape[1]:
-        rsz_shape = [int(shape[0] / shape[1] * crop_shape[0] / crop_factor),
-                     int(crop_shape[1] / crop_factor)]
-    else:
-        rsz_shape = [int(crop_shape[0] / crop_factor),
-                     int(shape[1] / shape[0] * crop_shape[1] / crop_factor)]
-    rszs = tf.image.resize_images(imgs, rsz_shape)
-    crops = (tf.image.resize_image_with_crop_or_pad(
-        rszs, crop_shape[0], crop_shape[1])
+    rszs_src = tf.image.resize_images(imgs_src, rsz_shape)
+    rszs_tar = tf.image.resize_images(imgs_tar, rsz_shape)
+    crops_src = (tf.image.resize_image_with_crop_or_pad(
+        rszs_src, crop_shape[0], crop_shape[1])
         if crop_shape is not None
-        else imgs)
-
-    if type_input != 'csv_featrue':
-        # We have to explicitly define the shape of the tensor.
-        # This is because the decode_jpeg operation is still a node in the graph
-        # and doesn't yet know the shape of the image.  Future operations however
-        # need explicit knowledge of the image's shape in order to be created.
-        imgs.set_shape(shape)
-
-        # Next we'll centrally crop the image to the size of 100x100.
-        # This operation required explicit knowledge of the image's shape.
-        if shape[0] > shape[1]:
-            rsz_shape = [int(shape[0] / shape[1] * crop_shape[0] / crop_factor),
-                         int(crop_shape[1] / crop_factor)]
-        else:
-            rsz_shape = [int(crop_shape[0] / crop_factor),
-                         int(shape[1] / shape[0] * crop_shape[1] / crop_factor)]
-        rszs = tf.image.resize_images(imgs, rsz_shape)
-        crops = (tf.image.resize_image_with_crop_or_pad(
-            rszs, crop_shape[0], crop_shape[1])
-            if crop_shape is not None
-            else imgs)
+        else imgs_src)
+    crops_tar = (tf.image.resize_image_with_crop_or_pad(
+        rszs_tar, crop_shape[0], crop_shape[1])
+        if crop_shape is not None
+        else imgs_tar)
 
     # Now we'll create a batch generator that will also shuffle our examples.
     # We tell it how many it should have in its buffer when it randomly
@@ -135,74 +116,26 @@ def create_input_pipeline(files, batch_size, n_epochs, shape, crop_shape=None,
     capacity = min_after_dequeue + (n_threads + 1) * batch_size
 
     # Randomize the order and output batches of batch_size.
-    if type_input == 'csv_path':
-        batch_image, batch_label = tf.train.batch([crops, img_cat],
-                                                   batch_size=batch_size,
-                                                   num_threads=n_threads,
-                                                   capacity=capacity)
-    elif type_input == 'csv_feature':
-        batch_image, batch_label = tf.train.batch([imgs, img_cat],
-                                                   batch_size=batch_size,
-                                                   num_threads=n_threads,
-                                                   capacity=capacity)
-    elif type_input == 'img_path':
-        batch = tf.train.shuffle_batch([crops],
+    # alternatively, we could use shuffle_batch_join to use multiple reader
+    # instances, or set shuffle_batch's n_threads to higher than 1.
+
+    if shuffle is True:
+        batch_src, batch_tar, batch_label = tf.train.shuffle_batch(
+                                       [crops_src, crops_tar, label],
                                        enqueue_many=False,
                                        batch_size=batch_size,
                                        capacity=capacity,
                                        min_after_dequeue=min_after_dequeue,
                                        num_threads=n_threads,
                                        seed=seed)
+    else:
+        batch_src, batch_tar, batch_label = tf.train.batch(
+                                       [crops_src, crops_tar, label],
+                                       enqueue_many=False,
+                                       batch_size=batch_size)
 
-
-    # alternatively, we could use shuffle_batch_join to use multiple reader
-    # instances, or set shuffle_batch's n_threads to higher than 1.
-    return batch_image, batch_label
-
-
-def download_and_extract_tar(path, dst):
-    """Download and extract a tar file.
-
-    Parameters
-    ----------
-    path : str
-        Url to tar file to download.
-    dst : str
-        Location to save tar file contents.
-    """
-    import tarfile
-    filepath = download(path)
-    if not os.path.exists(dst):
-        os.makedirs(dst)
-    tarfile.open(filepath, 'r:gz').extractall(dst)
-
-
-def download(path):
-    """Use urllib to download a file.
-
-    Parameters
-    ----------
-    path : str
-        Url to download
-
-    Returns
-    -------
-    path : str
-        Location of downloaded file.
-    """
-    from six.moves import urllib
-    from IPython.core.display import clear_output
-
-    print('Downloading ' + path)
-
-    def progress(count, block_size, total_size):
-        print('Downloaded %02.02f/%02.02f MB' % (
-            count * block_size / 1024.0 / 1024.0,
-            total_size / 1024.0 / 1024.0))
-        clear_output(wait=True)
-
-    filepath, _ = urllib.request.urlretrieve(path, reporthook=progress)
-    return filepath
+    batch = [batch_src, batch_tar, batch_label]
+    return batch
 
 
 def gtzan_music_speech_download(dst='gtzan_music_speech'):
@@ -378,6 +311,7 @@ class DatasetSplit(object):
             Next batch of inputs and labels (if no labels, then None).
         """
         # Shuffle each epoch
+        np.random.seed(0)
         current_permutation = np.random.permutation(range(len(self.images)))
         epoch_images = self.images[current_permutation, ...]
         if self.labels is not None:
@@ -449,6 +383,7 @@ class Dataset(object):
         self.all_inputs = Xs
         n_idxs = len(self.all_inputs)
         idxs = range(n_idxs)
+        np.random.seed(0)
         rand_idxs = np.random.permutation(idxs)
         self.all_inputs = self.all_inputs[rand_idxs, ...]
         if ys is not None:
@@ -461,8 +396,10 @@ class Dataset(object):
         self.train_idxs = idxs[:round(split[0] * n_idxs)]
         self.valid_idxs = idxs[len(self.train_idxs):
                                len(self.train_idxs) + round(split[1] * n_idxs)]
-        self.test_idxs = idxs[len(self.valid_idxs):
-                              len(self.valid_idxs) + round(split[2] * n_idxs)]
+        self.test_idxs = idxs[
+            (len(self.valid_idxs) + len(self.train_idxs)):
+            (len(self.valid_idxs) + len(self.train_idxs)) +
+             round(split[2] * n_idxs)]
 
     @property
     def X(self):
@@ -495,11 +432,14 @@ class Dataset(object):
         split : DatasetSplit
             Split of the train dataset.
         """
-        inputs = self.all_inputs[self.train_idxs, ...]
-        if self.all_labels is not None:
-            labels = self.all_labels[self.train_idxs, ...]
+        if len(self.train_idxs):
+            inputs = self.all_inputs[self.train_idxs, ...]
+            if self.all_labels is not None:
+                labels = self.all_labels[self.train_idxs, ...]
+            else:
+                labels = None
         else:
-            labels = None
+            inputs, labels = [], []
         return DatasetSplit(inputs, labels)
 
     @property
@@ -511,11 +451,14 @@ class Dataset(object):
         split : DatasetSplit
             Split of the validation dataset.
         """
-        inputs = self.all_inputs[self.valid_idxs, ...]
-        if self.all_labels is not None:
-            labels = self.all_labels[self.valid_idxs, ...]
+        if len(self.valid_idxs):
+            inputs = self.all_inputs[self.valid_idxs, ...]
+            if self.all_labels is not None:
+                labels = self.all_labels[self.valid_idxs, ...]
+            else:
+                labels = None
         else:
-            labels = None
+            inputs, labels = [], []
         return DatasetSplit(inputs, labels)
 
     @property
@@ -527,11 +470,14 @@ class Dataset(object):
         split : DatasetSplit
             Split of the test dataset.
         """
-        inputs = self.all_inputs[self.test_idxs, ...]
-        if self.all_labels is not None:
-            labels = self.all_labels[self.test_idxs, ...]
+        if len(self.test_idxs):
+            inputs = self.all_inputs[self.test_idxs, ...]
+            if self.all_labels is not None:
+                labels = self.all_labels[self.test_idxs, ...]
+            else:
+                labels = None
         else:
-            labels = None
+            inputs, labels = [], []
         return DatasetSplit(inputs, labels)
 
     def mean(self):

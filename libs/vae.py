@@ -31,6 +31,7 @@ from tensorflow.contrib.slim.python.slim.nets import vgg
 
 
 def VAE(input_shape=[None, 784],
+        output_shape=[None, 784],
         n_filters=[64, 64, 64],
         filter_sizes=[4, 4, 4],
         n_hidden=32,
@@ -108,19 +109,19 @@ def VAE(input_shape=[None, 784],
         }
     """
     # network input / placeholders for train (bn) and dropout
-    x_img = tf.placeholder(tf.float32, input_shape, 'x_img')
-    x_obj = tf.placeholder(tf.float32, input_shape, 'x_obj')
+    x = tf.placeholder(tf.float32, input_shape, 'x')
+    t = tf.placeholder(tf.float32, output_shape, 't')
+    label = tf.placeholder(tf.int32, [None], 'label')
     phase_train = tf.placeholder(tf.bool, name='phase_train')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     corrupt_rec = tf.placeholder(tf.float32, name='corrupt_rec')
     corrupt_cls = tf.placeholder(tf.float32, name='corrupt_cls')
-    x_label = tf.placeholder(tf.int32, [None, 1], 'x_label')
 
     # input of the reconstruction network
     # np.tanh(2) = 0.964
-    current_input1 = utils.corrupt(x_img)*corrupt_rec + x_img*(1-corrupt_rec) \
-        if (denoising and phase_train is not None) else x_img
-    current_input1.set_shape(x_img.get_shape())
+    current_input1 = utils.corrupt(x)*corrupt_rec + x*(1-corrupt_rec) \
+        if (denoising and phase_train is not None) else x
+    current_input1.set_shape(x.get_shape())
     # 2d -> 4d if convolution
     current_input1 = utils.to_tensor(current_input1) \
         if convolutional else current_input1
@@ -171,7 +172,7 @@ def VAE(input_shape=[None, 784],
 
             # Sample from noise distribution p(eps) ~ N(0, 1)
             epsilon = tf.random_normal(
-                tf.stack([tf.shape(x_img)[0], n_code]))
+                tf.stack([tf.shape(x)[0], n_code]))
 
             # Sample from posterior
             z = z_mu + tf.multiply(epsilon, tf.exp(z_log_sigma))
@@ -228,12 +229,12 @@ def VAE(input_shape=[None, 784],
             current_input1 = h
 
     y = current_input1
-    x_obj_flat = utils.flatten(x_obj)
+    t_flat = utils.flatten(t)
     y_flat = utils.flatten(y)
 
     # l2 loss
     loss_x = tf.reduce_mean(
-        tf.reduce_sum(tf.squared_difference(x_obj_flat, y_flat), 1))
+        tf.reduce_sum(tf.squared_difference(t_flat, y_flat), 1))
     loss_z = 0
 
     if variational:
@@ -250,17 +251,17 @@ def VAE(input_shape=[None, 784],
 
     # Alexnet for clasification based on softmax using TensorFlow slim
     if softmax:
-        axis = list(range(len(x_img.get_shape())))
-        mean1, variance1 = tf.nn.moments(x_obj, axis) \
-                        if (phase_train is True) else tf.nn.moments(x_img, axis)
+        axis = list(range(len(x.get_shape())))
+        mean1, variance1 = tf.nn.moments(t, axis) \
+                        if (phase_train is True) else tf.nn.moments(x, axis)
         mean2, variance2 = tf.nn.moments(y, axis)
         var_prob = variance2/variance1
 
         # Input of the classification network
-        current_input2 = utils.corrupt(x_img)*corrupt_cls + \
-            x_img*(1-corrupt_cls) \
-            if (denoising and phase_train is True) else x_img
-        current_input2.set_shape(x_img.get_shape())
+        current_input2 = utils.corrupt(x)*corrupt_cls + \
+            x*(1-corrupt_cls) \
+            if (denoising and phase_train is True) else x
+        current_input2.set_shape(x.get_shape())
         current_input2 = utils.to_tensor(current_input2) \
             if convolutional else current_input2
 
@@ -302,14 +303,14 @@ def VAE(input_shape=[None, 784],
             predictions, end_points = inception.inception_v3(
                         y_concat, num_classes=13)
 
-        x_label_onehot = tf.squeeze(tf.one_hot(x_label, 13, 1, 0), [1])
-        slim.losses.softmax_cross_entropy(predictions, x_label_onehot)
+        label_onehot = tf.one_hot(label, 13, 1, 0)
+        slim.losses.softmax_cross_entropy(predictions, label_onehot)
         cost_s = slim.losses.get_total_loss()
         # cost = tf.reduce_mean(cost + cost_s)
-        acc = tf.nn.in_top_k(predictions, tf.squeeze(x_label, [1]), 1)
+        acc = tf.nn.in_top_k(predictions, label, 1)
     else:
-        predictions = tf.squeeze(tf.one_hot(x_label, 13, 1, 0), [1])
-        x_label_onehot = tf.squeeze(tf.one_hot(x_label, 13, 1, 0), [1])
+        predictions = tf.one_hot(label, 13, 1, 0)
+        label_onehot = tf.one_hot(label, 13, 1, 0)
         cost_s = 0
         acc = 0
     # Using Summaries for Tensorboard
@@ -327,10 +328,10 @@ def VAE(input_shape=[None, 784],
             'loss_x': loss_x,
             'loss_z': loss_z,
             'Ws': Ws,
-            'x_img': x_img,
-            'x_obj': x_obj,
-            'x_label': x_label,
-            'x_label_onehot': x_label_onehot,
+            'x': x,
+            't': t,
+            'label': label,
+            'label_onehot': label_onehot,
             'predictions': predictions,
             'z': z,
             'y': y,
@@ -343,15 +344,14 @@ def VAE(input_shape=[None, 784],
             'merged': merged}
 
 
-def train_vae(files_img,
-              files_obj,
-              input_shape,
-              type_input='csv_path',
+def train_vae(files,
+              input_shape=[None, 784],
+              output_shape=[None, 784],
               learning_rate=0.0001,
               batch_size=100,
               n_epochs=50,
               n_examples=121,
-              crop_shape=[128, 128, 3],
+              crop_shape=[128, 128],
               crop_factor=0.8,
               n_filters=[75, 100, 100, 100, 100],
               n_hidden=256,
@@ -378,8 +378,6 @@ def train_vae(files_img,
     List of paths to images.
     input_shape : list
     Must define what the input image's shape is.
-    type_input = str, optional
-    Use csv files to train conditional VAE or just VAE.
     learning_rate : float, optional
     Learning rate.
     batch_size : int, optional
@@ -424,58 +422,44 @@ def train_vae(files_img,
     ckpt_name : str, optional
     Checkpoints will be named as this, e.g. 'model.ckpt'
     """
-    tf.set_random_seed(1)
-    seed = 1
-    batch_obj, batch_label_o = create_input_pipeline(
-        files=files_obj,
+    
+    batch_train = create_input_pipeline(
+        files=files,
         batch_size=batch_size,
         n_epochs=n_epochs,
         crop_shape=crop_shape,
         crop_factor=crop_factor,
-        shape=input_shape,
-        seed=seed,
-        type_input=type_input)
-
-    batch_img, batch_label_i = create_input_pipeline(
-        files=files_img,
-        batch_size=batch_size,
-        n_epochs=n_epochs,
-        crop_shape=crop_shape,
-        crop_factor=crop_factor,
-        shape=input_shape,
-        seed=seed,
-        type_input=type_input)
+        input_shape=input_shape,
+        output_shape=output_shape)
 
     if softmax:
-        batch_imagenet, batch_imagenet_label = create_input_pipeline(
-            files="../list_annotated_imagenet.csv",
+        batch_imagenet = create_input_pipeline(
+            files="./list_annotated_imagenet.csv",
             batch_size=batch_size,
             n_epochs=n_epochs,
             crop_shape=crop_shape,
             crop_factor=crop_factor,
-            shape=input_shape,
-            seed=seed,
-            type_input=type_input)
-        batch_pascal, batch_pascal_label = create_input_pipeline(
-            files="../list_annotated_pascal.csv",
+            input_shape=input_shape,
+            output_shape=output_shape)
+        batch_pascal = create_input_pipeline(
+            files="./list_annotated_pascal.csv",
             batch_size=batch_size,
             n_epochs=n_epochs,
             crop_shape=crop_shape,
             crop_factor=crop_factor,
-            shape=input_shape,
-            seed=seed,
-            type_input=type_input)
-        batch_shapenet, batch_shapenet_label = create_input_pipeline(
-            files="../list_annotated_img_test.csv",
+            input_shape=input_shape,
+            output_shape=output_shape)
+        batch_shapenet = create_input_pipeline(
+            files="./list_annotated_img_test.csv",
             batch_size=batch_size,
             n_epochs=n_epochs,
             crop_shape=crop_shape,
             crop_factor=crop_factor,
-            shape=input_shape,
-            seed=seed,
-            type_input=type_input)
+            input_shape=input_shape,
+            output_shape=output_shape)
 
-    ae = VAE(input_shape=[None] + crop_shape,
+    ae = VAE(input_shape=[None] + crop_shape + [input_shape[-1]],
+             output_shape=[None] + crop_shape + [output_shape[-1]],
              denoising=denoising,
              convolutional=convolutional,
              variational=variational,
@@ -488,13 +472,10 @@ def train_vae(files_img,
              activation=activation,
              classifier=classifier)
 
-    if (type_input == 'csv_path' or type_input == 'csv_feature'):
-        with open(files_img, "r") as f:
-            reader = csv.reader(f, delimiter=",")
-            data = list(reader)
-            n_files = len(data)
-    else:
-        n_files = len(files_img)
+    with open(files, "r") as f:
+        reader = csv.reader(f, delimiter=",")
+        data = list(reader)
+        n_files = len(data)
 
     # Create a manifold of our inner most layer to show
     # example reconstructions.  This is one way to see
@@ -575,42 +556,33 @@ def train_vae(files_img,
     summary_i = 0
     cost = 0
     # Test samples of training data from ShapeNet
-    test_xs_obj, test_xs_label = sess.run([batch_obj, batch_label_o])
-    test_xs_obj /= 255.0
-    utils.montage(test_xs_obj, 'train_obj.png')
-    test_xs_img, test_xs_label = sess.run([batch_img, batch_label_i])
+    test_xs_img, test_xs_obj, test_xs_label = sess.run(batch_train)
     test_xs_img /= 255.0
+    test_xs_obj /= 255.0
     utils.montage(test_xs_img, 'train_img.png')
+    utils.montage(test_xs_obj, 'train_obj.png')
 
     # Test samples of testing data from ImageNet
-    test_imagenet_img, test_imagenet_label = sess.run(
-            [batch_imagenet, batch_imagenet_label])
+    test_imagenet_img, _, test_imagenet_label = sess.run(batch_imagenet)
     test_imagenet_img /= 255.0
     utils.montage(test_imagenet_img, 'test_imagenet_img.png')
 
     # Test samples of testing data from PASCAL 2012
-    test_pascal_img, test_pascal_label = sess.run(
-            [batch_pascal, batch_pascal_label])
+    test_pascal_img, _, test_pascal_label = sess.run(batch_pascal)
     test_pascal_img /= 255.0
     utils.montage(test_pascal_img, 'test_pascal_img.png')
 
     # Test samples of testing data from ShapeNet test data
-    test_shapenet_img, test_shapenet_label = sess.run(
-            [batch_shapenet, batch_shapenet_label])
+    test_shapenet_img, _, test_shapenet_label = sess.run(batch_shapenet)
     test_shapenet_img /= 255.0
     utils.montage(test_shapenet_img, 'test_shapenet_img.png')
     try:
         while not coord.should_stop():
             batch_i += 1
             step_i += 1
-            batch_xs_img, batch_xs_label = sess.run(
-                    [batch_img, batch_label_i])
+            batch_xs_img, batch_xs_obj, batch_xs_label = sess.run(batch_train)
             batch_xs_img /= 255.0
-            batch_xs_obj, batch_xs_label2 = sess.run(
-                    [batch_obj, batch_label_o])
             batch_xs_obj /= 255.0
-            # import pdb; pdb.set_trace()
-            assert batch_xs_label.all() == batch_xs_label2.all()
 
             # Here we must set corrupt_rec and corrupt_cls as 0 to find a
             # proper ratio of variance to feed for variable var_prob.
@@ -619,8 +591,8 @@ def train_vae(files_img,
             var_prob = sess.run(
                     ae['var_prob'],
                     feed_dict={
-                        ae['x_img']: test_xs_img,
-                        ae['x_label']: test_xs_label,
+                        ae['x']: test_xs_img,
+                        ae['label']: test_xs_label[:, 0],
                         ae['train']: True,
                         ae['keep_prob']: 1.0,
                         ae['corrupt_rec']: 0,
@@ -634,9 +606,9 @@ def train_vae(files_img,
             cost_vae = sess.run(
                 [ae['cost_vae'], optimizer_vae],
                 feed_dict={
-                    ae['x_img']: batch_xs_img,
-                    ae['x_obj']: batch_xs_obj,
-                    ae['x_label']: batch_xs_label,
+                    ae['x']: batch_xs_img,
+                    ae['t']: batch_xs_obj,
+                    ae['label']: batch_xs_label[:, 0],
                     ae['train']: True,
                     ae['keep_prob']: keep_prob,
                     ae['corrupt_rec']: corrupt_rec,
@@ -648,9 +620,9 @@ def train_vae(files_img,
                 cost_s = sess.run(
                     [ae['cost_s'], optimizer_softmax],
                     feed_dict={
-                        ae['x_img']: batch_xs_img,
-                        ae['x_obj']: batch_xs_obj,
-                        ae['x_label']: batch_xs_label,
+                        ae['x']: batch_xs_img,
+                        ae['t']: batch_xs_obj,
+                        ae['label']: batch_xs_label[:, 0],
                         ae['train']: True,
                         ae['keep_prob']: keep_prob,
                         ae['corrupt_rec']: corrupt_rec,
@@ -673,7 +645,7 @@ def train_vae(files_img,
                 # Plot example reconstructions
                 recon = sess.run(
                     ae['y'], feed_dict={
-                                ae['x_img']: test_xs_img,
+                                ae['x']: test_xs_img,
                                 ae['train']: False,
                                 ae['keep_prob']: 1.0,
                                 ae['corrupt_rec']: 0,
@@ -683,7 +655,7 @@ def train_vae(files_img,
                 """
                 filters = sess.run(
                   ae['Ws'], feed_dict={
-                              ae['x_img']: test_xs_img,
+                              ae['x']: test_xs_img,
                               ae['train']: False,
                               ae['keep_prob']: 1.0,
                               ae['corrupt_rec']: 0,
@@ -701,14 +673,13 @@ def train_vae(files_img,
                 num_batches = np.int_(np.floor(totalrows/batch_size))
                 accumulated_acc = 0
                 for index_batch in range(1, num_batches+1):
-                    test_image, test_label = sess.run(
-                                        [batch_imagenet, batch_imagenet_label])
+                    test_image, _, test_label = sess.run(batch_imagenet)
                     test_image /= 255.0
                     acc, z_codes, sm_codes = sess.run(
                                     [ae['acc'], ae['z'], ae['predictions']],
                                     feed_dict={
-                                        ae['x_img']: test_image,
-                                        ae['x_label']: test_label,
+                                        ae['x']: test_image,
+                                        ae['label']: test_label[:, 0],
                                         ae['train']: False,
                                         ae['keep_prob']: 1.0,
                                         ae['corrupt_rec']: 0,
@@ -722,7 +693,7 @@ def train_vae(files_img,
                         recon = sess.run(
                                 ae['y'],
                                 feed_dict={
-                                    ae['x_img']: test_imagenet_img,
+                                    ae['x']: test_imagenet_img,
                                     ae['train']: False,
                                     ae['keep_prob']: 1.0,
                                     ae['corrupt_rec']: 0,
@@ -770,14 +741,13 @@ def train_vae(files_img,
                 num_batches = np.int_(np.floor(totalrows/batch_size))
                 accumulated_acc = 0
                 for index_batch in range(1, num_batches+1):
-                    test_image, test_label = sess.run(
-                                    [batch_pascal, batch_pascal_label])
+                    test_image, _, test_label = sess.run(batch_pascal)
                     test_image /= 255.0
                     acc, z_codes, sm_codes = sess.run(
                                     [ae['acc'], ae['z'], ae['predictions']],
                                     feed_dict={
-                                        ae['x_img']: test_image,
-                                        ae['x_label']: test_label,
+                                        ae['x']: test_image,
+                                        ae['label']: test_label[:, 0],
                                         ae['train']: False,
                                         ae['keep_prob']: 1.0,
                                         ae['corrupt_rec']: 0,
@@ -791,7 +761,7 @@ def train_vae(files_img,
                         recon = sess.run(
                                 ae['y'],
                                 feed_dict={
-                                    ae['x_img']: test_pascal_img,
+                                    ae['x']: test_pascal_img,
                                     ae['train']: False,
                                     ae['keep_prob']: 1.0,
                                     ae['corrupt_rec']: 0,
@@ -837,14 +807,13 @@ def train_vae(files_img,
                 num_batches = np.int_(np.floor(totalrows/batch_size))
                 accumulated_acc = 0
                 for index_batch in range(1, num_batches+1):
-                    test_image, test_label = sess.run(
-                                    [batch_shapenet, batch_shapenet_label])
+                    test_image, _, test_label = sess.run(batch_shapenet)
                     test_image /= 255.0
                     acc, z_codes, sm_codes = sess.run(
                                     [ae['acc'], ae['z'], ae['predictions']],
                                     feed_dict={
-                                        ae['x_img']: test_image,
-                                        ae['x_label']: test_label,
+                                        ae['x']: test_image,
+                                        ae['label']: test_label[:, 0],
                                         ae['train']: False,
                                         ae['keep_prob']: 1.0,
                                         ae['corrupt_rec']: 0,
@@ -857,7 +826,7 @@ def train_vae(files_img,
                         # Plot example reconstructions
                         recon = sess.run(ae['y'],
                                     feed_dict={
-                                        ae['x_img']: test_shapenet_img,
+                                        ae['x']: test_shapenet_img,
                                         ae['train']: False,
                                         ae['keep_prob']: 1.0,
                                         ae['corrupt_rec']: 0,
@@ -907,8 +876,8 @@ def train_vae(files_img,
                     acc = sess.run(
                             ae['acc'],
                             feed_dict={
-                                ae['x_img']: test_xs_img,
-                                ae['x_label']: test_xs_label,
+                                ae['x']: test_xs_img,
+                                ae['label']: test_xs_label[:, 0],
                                 ae['train']: False,
                                 ae['keep_prob']: 1.0,
                                 ae['corrupt_rec']: 0,
@@ -927,9 +896,9 @@ def train_vae(files_img,
                     summary = sess.run(
                             ae['merged'],
                             feed_dict={
-                                    ae['x_img']: batch_xs_img,
-                                    ae['x_obj']: batch_xs_obj,
-                                    ae['x_label']: batch_xs_label,
+                                    ae['x']: batch_xs_img,
+                                    ae['t']: batch_xs_obj,
+                                    ae['label']: batch_xs_label[:, 0],
                                     ae['train']: False,
                                     ae['keep_prob']: keep_prob,
                                     ae['corrupt_rec']: corrupt_rec,
