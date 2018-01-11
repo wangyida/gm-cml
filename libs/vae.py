@@ -530,12 +530,8 @@ def train_vae(files,
     # config.gpu_options.per_process_gpu_memory_fraction = 0.4
     sess = tf.Session(config=config)
     saver = tf.train.Saver()
-
-    # Write a summary for Tensorboard
-    train_writer = tf.summary.FileWriter('./summary', sess.graph)
-
-    # initialize
     sess.run(tf.global_variables_initializer())
+    train_writer = tf.summary.FileWriter('./summary', sess.graph)
 
     # This will handle our threaded image pipeline
     coord = tf.train.Coordinator()
@@ -546,8 +542,12 @@ def train_vae(files,
     # Start up the queues for handling the image pipeline
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    if os.path.exists(ckpt_name):
-        saver.restore(sess, ckpt_name)
+    if (
+            os.path.exists(output_path + '/' + ckpt_name + '.index') or
+            os.path.exists(ckpt_name)
+       ):
+        saver.restore(sess, output_path + '/' + ckpt_name)
+        print("Model restored")
 
     # Fit all training data
     t_i = 0
