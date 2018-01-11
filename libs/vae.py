@@ -347,12 +347,12 @@ def train_vae(files,
               input_shape=[None, 784],
               output_shape=[None, 784],
               learning_rate=0.0001,
-              batch_size=100,
+              batch_size=128,
               n_epochs=50,
               n_examples=121,
-              crop_shape=[128, 128],
+              crop_shape=[64, 64],
               crop_factor=0.8,
-              n_filters=[75, 100, 100, 100, 100],
+              n_filters=[100, 100, 100, 100],
               n_hidden=256,
               n_code=50,
               denoising=True,
@@ -364,10 +364,10 @@ def train_vae(files,
               dropout=True,
               keep_prob=0.8,
               activation=tf.nn.relu,
-              img_step=2500,
-              save_step=100,
+              img_step=1000,
+              save_step=2500,
               output_path="result",
-              ckpt_name="./vae.ckpt"):
+              ckpt_name="vae.ckpt"):
     """General purpose training of a (Variational) (Convolutional) Autoencoder.
 
     Supply a list of file paths to images, and this will do everything else.
@@ -930,7 +930,3 @@ def train_vae(files,
 
     # Clean up the session.
     sess.close()
-
-
-if __name__ == '__main__':
-    test_celeb()

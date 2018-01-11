@@ -13,7 +13,6 @@ import tensorflow as tf
 
 # Train it!  Change these parameters!
 # n_code=72, here 72 = 12 * (8-2)
-tf.reset_default_graph()
 vae.train_vae(files="./list_annotated_shapenet.csv",
               input_shape=[116, 116, 3],
               output_shape=[116, 116, 3],
