@@ -526,8 +526,10 @@ def train_vae(files,
                                     learning_rate=0.001).minimize(ae['cost_s'])
 
     # We create a session to use the graph together with a GPU declaration.
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    # config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    sess = tf.Session(config=config)
     saver = tf.train.Saver()
 
     # Write a summary for Tensorboard
