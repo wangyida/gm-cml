@@ -366,6 +366,7 @@ def train_vae(files,
               activation=tf.nn.relu,
               img_step=2500,
               save_step=100,
+              output_path="result",
               ckpt_name="./vae.ckpt"):
     """General purpose training of a (Variational) (Convolutional) Autoencoder.
 

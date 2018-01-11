@@ -37,4 +37,5 @@ vae.train_vae(files="./list_annotated_shapenet.csv",
               activation=tf.nn.relu,
               img_step=2500,
               save_step=500,
-              ckpt_name="./vae.ckpt")
+              ckpt_name="./vae.ckpt",
+              output_path="./results_gmcml")
