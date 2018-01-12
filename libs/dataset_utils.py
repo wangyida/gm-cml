@@ -126,7 +126,7 @@ def create_input_pipeline(files, batch_size, n_epochs, input_shape, output_shape
                                        batch_size=batch_size,
                                        capacity=capacity,
                                        min_after_dequeue=min_after_dequeue,
-                                       num_threads=n_threads,
+                                       num_threads=n_threads*8,
                                        seed=seed)
     else:
         batch_src, batch_tar, batch_label = tf.train.batch(
