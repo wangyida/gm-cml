@@ -11,6 +11,7 @@ learninig for classifcation.
 Copyright reserved for Yida Wang from BUPT.
 """
 
+import matplotlib
 matplotlib.use('Agg')
 import os
 import tensorflow as tf
@@ -31,7 +32,6 @@ def train_vae(files,
               learning_rate=0.0001,
               batch_size=128,
               n_epochs=50,
-              n_examples=121,
               crop_shape=[64, 64],
               crop_factor=0.8,
               n_filters=[100, 100, 100, 100],
@@ -168,7 +168,7 @@ def train_vae(files,
     np.random.seed(1)
     zs = np.random.uniform(
         -1.0, 1.0, [4, n_code]).astype(np.float32)
-    zs = utils.make_latent_manifold(zs, n_examples)
+    zs = utils.make_latent_manifold(zs, 6)
 
     optimizer_vae = tf.train.AdamOptimizer(
         learning_rate=learning_rate).minimize(ae['cost_vae'])

@@ -1,4 +1,5 @@
-"""Utilities used in the Kadenze Academy Course on Deep Learning w/ Tensorflow.
+"""
+Utilities used in the Kadenze Academy Course on Deep Learning w/ Tensorflow.
 
 Creative Applications of Deep Learning w/ Tensorflow.
 Kadenze, Inc.
@@ -6,6 +7,7 @@ Parag K. Mital
 
 Copyright Parag K. Mital, June 2016.
 """
+from __future__ import print_function
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import urllib
@@ -13,6 +15,75 @@ import numpy as np
 import zipfile
 import os
 from scipy.io import wavfile
+from scipy.misc import imsave
+
+
+def download(path):
+    """Use urllib to download a file.
+
+    Parameters
+    ----------
+    path : str
+        Url to download
+
+    Returns
+    -------
+    path : str
+        Location of downloaded file.
+    """
+    import os
+    from six.moves import urllib
+
+    fname = path.split('/')[-1]
+    if os.path.exists(fname):
+        return fname
+
+    print('Downloading ' + path)
+
+    def progress(count, block_size, total_size):
+        if count % 20 == 0:
+            print('Downloaded %02.02f/%02.02f MB' % (
+                count * block_size / 1024.0 / 1024.0,
+                total_size / 1024.0 / 1024.0), end='\r')
+
+    filepath, _ = urllib.request.urlretrieve(
+        path, filename=fname, reporthook=progress)
+    return filepath
+
+
+def download_and_extract_tar(path, dst):
+    """Download and extract a tar file.
+
+    Parameters
+    ----------
+    path : str
+        Url to tar file to download.
+    dst : str
+        Location to save tar file contents.
+    """
+    import tarfile
+    filepath = download(path)
+    if not os.path.exists(dst):
+        os.makedirs(dst)
+        tarfile.open(filepath, 'r:gz').extractall(dst)
+
+
+def download_and_extract_zip(path, dst):
+    """Download and extract a zip file.
+
+    Parameters
+    ----------
+    path : str
+        Url to zip file to download.
+    dst : str
+        Location to save zip file contents.
+    """
+    import zipfile
+    filepath = download(path)
+    if not os.path.exists(dst):
+        os.makedirs(dst)
+        zf = zipfile.ZipFile(file=filepath)
+        zf.extractall(dst)
 
 
 def load_audio(filename, b_normalize=True):
@@ -47,7 +118,7 @@ def corrupt(x):
     x_corrupted : Tensor
         50 pct of values corrupted.
     """
-    return tf.mul(x, tf.cast(tf.random_uniform(shape=tf.shape(x),
+    return tf.multiply(x, tf.cast(tf.random_uniform(shape=tf.shape(x),
                                                minval=0,
                                                maxval=2,
                                                dtype=tf.int32), tf.float32))
@@ -174,14 +245,25 @@ def montage(images, saveto='montage.png'):
     img_h = images.shape[1]
     img_w = images.shape[2]
     n_plots = int(np.ceil(np.sqrt(images.shape[0])))
-    if len(images.shape) == 4 and images.shape[3] == 3:
+    if len(images.shape) == 4 and images.shape[3] == 4:
+        m = np.ones(
+            (images.shape[1] * n_plots + n_plots + 1,
+             images.shape[2] * n_plots + n_plots + 1, 4)) * 0.5
+    elif len(images.shape) == 4 and images.shape[3] == 3:
         m = np.ones(
             (images.shape[1] * n_plots + n_plots + 1,
              images.shape[2] * n_plots + n_plots + 1, 3)) * 0.5
-    else:
+    elif len(images.shape) == 4 and images.shape[3] == 1:
+        m = np.ones(
+            (images.shape[1] * n_plots + n_plots + 1,
+             images.shape[2] * n_plots + n_plots + 1, 1)) * 0.5
+    elif len(images.shape) == 3:
         m = np.ones(
             (images.shape[1] * n_plots + n_plots + 1,
              images.shape[2] * n_plots + n_plots + 1)) * 0.5
+    else:
+        raise ValueError('Could not parse image shape of {}'.format(
+            images.shape))
     for i in range(n_plots):
         for j in range(n_plots):
             this_filter = i * n_plots + j
@@ -189,11 +271,11 @@ def montage(images, saveto='montage.png'):
                 this_img = images[this_filter]
                 m[1 + i + i * img_h:1 + i + (i + 1) * img_h,
                   1 + j + j * img_w:1 + j + (j + 1) * img_w] = this_img
-    plt.imsave(arr=m, fname=saveto)
+    imsave(arr=np.squeeze(m), name=saveto)
     return m
 
 
-def montage_filters(W, saveto='montage.png'):
+def montage_filters(W):
     """Draws all filters (n_input * n_output filters) as a
     montage image separated by 1 pixel borders.
 
@@ -219,7 +301,6 @@ def montage_filters(W, saveto='montage.png'):
                 m[1 + i + i * W.shape[0]:1 + i + (i + 1) * W.shape[0],
                   1 + j + j * W.shape[1]:1 + j + (j + 1) * W.shape[1]] = (
                     np.squeeze(W[:, :, :, this_filter]))
-    plt.imsave(arr=m, fname=saveto)
     return m
 
 
@@ -292,7 +373,7 @@ def gauss(mean, stddev, ksize):
     g = tf.Graph()
     with tf.Session(graph=g):
         x = tf.linspace(-3.0, 3.0, ksize)
-        z = (tf.exp(tf.neg(tf.pow(x - mean, 2.0) /
+        z = (tf.exp(tf.negative(tf.pow(x - mean, 2.0) /
                            (2.0 * tf.pow(stddev, 2.0)))) *
              (1.0 / (stddev * tf.sqrt(2.0 * 3.1415))))
         return z.eval()
@@ -366,7 +447,7 @@ def gabor(ksize=32):
         ys = tf.sin(tf.linspace(-3.0, 3.0, ksize))
         ys = tf.reshape(ys, [ksize, 1])
         wave = tf.matmul(ys, ones)
-        gabor = tf.mul(wave, z_2d)
+        gabor = tf.multiply(wave, z_2d)
         return gabor.eval()
 
 
@@ -515,6 +596,57 @@ def conv2d(x, n_output,
 
     return h, W
 
+def conv2d_squeeze(x, n_output,
+           d_h=2, d_w=2,
+           padding='SAME', name='conv2d_squeeze', reuse=None):
+    """Helper for creating a 2d convolution operation with fire module.
+
+    Parameters
+    ----------
+    x : tf.Tensor
+        Input tensor to convolve.
+    n_output : int
+        Number of filters.
+    d_h : int, optional
+        Height stride
+    d_w : int, optional
+        Width stride
+    padding : str, optional
+        Padding type: "SAME" or "VALID"
+    name : str, optional
+        Variable scope
+
+    Returns
+    -------
+    op : tf.Tensor
+        Output of convolution
+    """
+    with tf.variable_scope(name or 'conv2d_squeeze', reuse=reuse):
+        ratio = 4
+        W_s1 = tf.get_variable(
+                    name='W_s1',
+                    shape=[1, 1, x.get_shape()[-1], n_output/ratio],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        W_e1 = tf.get_variable(
+                    name='W_e1',
+                    shape=[1, 1, n_output/ratio, n_output/2],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        W_e3 = tf.get_variable(
+                    name='W_e3',
+                    shape=[3, 3, n_output/ratio, n_output/2],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        
+        fire = tf.nn.conv2d(x, W_s1, strides=[1,1,1,1], padding=padding)
+
+        fire = fire + bias_variable([int(n_output/ratio)])
+        fire_e1 = tf.nn.conv2d(fire, W_e1, strides=[1,d_h,d_w,1], padding=padding)
+        fire_e3 = tf.nn.conv2d(fire, W_e3, strides=[1,d_h,d_w,1], padding=padding)
+        fire = tf.concat([fire_e1, fire_e3], 3)
+
+        h = fire + bias_variable([int(n_output)])
+
+    return h, [W_s1, W_e1, W_e3]
+
 
 def deconv2d(x, n_output_h, n_output_w, n_output_ch, n_input_ch=None,
              k_h=5, k_w=5, d_h=2, d_w=2,
@@ -552,7 +684,7 @@ def deconv2d(x, n_output_h, n_output_w, n_output_ch, n_input_ch=None,
     with tf.variable_scope(name or 'deconv2d', reuse=reuse):
         W = tf.get_variable(
             name='W',
-            shape=[k_h, k_h, n_output_ch, n_input_ch or x.get_shape()[-1]],
+            shape=[k_h, k_w, n_output_ch, n_input_ch or x.get_shape()[-1]],
             initializer=tf.contrib.layers.xavier_initializer_conv2d())
 
         conv = tf.nn.conv2d_transpose(
@@ -575,6 +707,74 @@ def deconv2d(x, n_output_h, n_output_w, n_output_ch, n_input_ch=None,
 
     return h, W
 
+def deconv2d_squeeze(x, n_output_h, n_output_w, n_output_ch, n_input_ch=None,
+             d_h=2, d_w=2,
+             padding='SAME', name='deconv2d_squeeze', reuse=None):
+    """Deconvolution helper.
+
+    Parameters
+    ----------
+    x : tf.Tensor
+        Input tensor to convolve.
+    n_output_h : int
+        Height of output
+    n_output_w : int
+        Width of output
+    n_output_ch : int
+        Number of filters.
+    d_h : int, optional
+        Height stride
+    d_w : int, optional
+        Width stride
+    padding : str, optional
+        Padding type: "SAME" or "VALID"
+    name : str, optional
+        Variable scope
+
+    Returns
+    -------
+    op : tf.Tensor
+        Output of deconvolution
+    """
+    with tf.variable_scope(name or 'deconv2d_squeeze', reuse=reuse):
+        ratio = 4 
+        W_e1 = tf.get_variable(
+                    name='W_e1',
+                    shape=[1, 1, int(n_output_ch/ratio)+1, n_input_ch or x.get_shape()[-1]],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        W_e3 = tf.get_variable(
+                    name='W_e3',
+                    shape=[3, 3, int(n_output_ch/ratio)+1, n_input_ch or x.get_shape()[-1]],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        W_s1 = tf.get_variable(
+                    name='W_s1',
+                    shape=[1, 1, int(n_output_ch/ratio)*2+2, n_output_ch],
+                    initializer=tf.contrib.layers.xavier_initializer_conv2d()) 
+        fire_e1 = tf.nn.conv2d_transpose(
+                value=x, 
+                filter=W_e1, 
+                output_shape=tf.stack(
+                    [tf.shape(x)[0], n_output_h, n_output_w, int(n_output_ch/ratio)+1]), 
+                strides=[1,d_h,d_w,1], 
+                padding=padding)
+        fire_e3 = tf.nn.conv2d_transpose(
+                value=x, 
+                filter=W_e3, 
+                output_shape=tf.stack(
+                    [tf.shape(x)[0], n_output_h, n_output_w, int(n_output_ch/ratio)+1]),
+                strides=[1,d_h,d_w,1], 
+                padding=padding)
+        fire_e1.set_shape([None, n_output_h, n_output_w, int(n_output_ch/ratio)+1])
+        fire_e3.set_shape([None, n_output_h, n_output_w, int(n_output_ch/ratio)+1])
+        fire_e1 = fire_e1 + bias_variable([int(n_output_ch/ratio)+1])
+        fire_e3 = fire_e3 + bias_variable([int(n_output_ch/ratio)+1])
+        fire = tf.concat([fire_e1, fire_e3], 3)
+        
+        fire = tf.nn.conv2d(fire, W_s1, strides=[1,1,1,1], padding=padding)
+
+        h = fire + bias_variable([n_output_ch])
+
+    return h, [W_s1, W_e1, W_e3]
 
 def lrelu(features, leak=0.2):
     """Leaky rectifier.
