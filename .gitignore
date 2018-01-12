@@ -23,7 +23,7 @@ wheels/
 *.egg
 
 summary
-result*
+results*
 MNIST_data
 F_MNIST_data
 list_*.csv

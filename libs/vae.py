@@ -561,23 +561,23 @@ def train_vae(files,
     test_xs_img, test_xs_obj, test_xs_label = sess.run(batch_train)
     test_xs_img /= 255.0
     test_xs_obj /= 255.0
-    utils.montage(test_xs_img, 'train_img.png')
-    utils.montage(test_xs_obj, 'train_obj.png')
+    utils.montage(test_xs_img, output_path + '/train_img.png')
+    utils.montage(test_xs_obj, output_path + '/train_obj.png')
 
     # Test samples of testing data from ImageNet
     test_imagenet_img, _, test_imagenet_label = sess.run(batch_imagenet)
     test_imagenet_img /= 255.0
-    utils.montage(test_imagenet_img, 'test_imagenet_img.png')
+    utils.montage(test_imagenet_img, output_path + '/test_imagenet_img.png')
 
     # Test samples of testing data from PASCAL 2012
     test_pascal_img, _, test_pascal_label = sess.run(batch_pascal)
     test_pascal_img /= 255.0
-    utils.montage(test_pascal_img, 'test_pascal_img.png')
+    utils.montage(test_pascal_img, output_path + '/test_pascal_img.png')
 
     # Test samples of testing data from ShapeNet test data
     test_shapenet_img, _, test_shapenet_label = sess.run(batch_shapenet)
     test_shapenet_img /= 255.0
-    utils.montage(test_shapenet_img, 'test_shapenet_img.png')
+    utils.montage(test_shapenet_img, output_path + '/test_shapenet_img.png')
     try:
         while not coord.should_stop():
             batch_i += 1
@@ -642,7 +642,7 @@ def train_vae(files,
                                     ae['corrupt_rec']: 0,
                                     ae['corrupt_cls']: 0})
                     utils.montage(recon.reshape([-1] + crop_shape),
-                                  'manifold_%08d.png' % t_i)
+                                  output_path + '/manifold_%08d.png' % t_i)
 
                 # Plot example reconstructions
                 recon = sess.run(
@@ -653,7 +653,7 @@ def train_vae(files,
                                 ae['corrupt_rec']: 0,
                                 ae['corrupt_cls']: 0})
                 utils.montage(recon.reshape([-1] + crop_shape),
-                              'recon_%08d.png' % t_i)
+                              output_path + '/recon_%08d.png' % t_i)
                 """
                 filters = sess.run(
                   ae['Ws'], feed_dict={
@@ -664,11 +664,11 @@ def train_vae(files,
                               ae['corrupt_cls']: 0})
                 #for filter_element in filters:
                 utils.montage_filters(filters[-1],
-                            'filter_%08d.png' % t_i)
+                                output_path + '/filter_%08d.png' % t_i)
                 """
 
                 # Test on ImageNet samples
-                with open('../list_annotated_imagenet.csv', 'r') as csvfile:
+                with open('./list_annotated_imagenet.csv', 'r') as csvfile:
                     spamreader = csv.reader(csvfile)
                     rows = list(spamreader)
                     totalrows = len(rows)
@@ -701,7 +701,7 @@ def train_vae(files,
                                     ae['corrupt_rec']: 0,
                                     ae['corrupt_cls']: 0})
                         utils.montage(recon.reshape([-1] + crop_shape),
-                                      'recon_imagenet_%08d.png' % t_i)
+                                      output_path + '/recon_imagenet_%08d.png' % t_i)
                     else:
                         z_imagenet = np.append(z_imagenet, z_codes, axis=0)
                         sm_imagenet = np.append(sm_imagenet, sm_codes, axis=0)
@@ -732,7 +732,7 @@ def train_vae(files,
                         alpha=0.9,
                         cmap='gist_rainbow')
 
-                fig.savefig('./z_feat_imagenet.png', transparent=True)
+                fig.savefig(output_path + '/z_feat_imagenet.png', transparent=True)
                 plt.clf()
 
                 # Test on PASCAL 2012 samples
@@ -769,7 +769,7 @@ def train_vae(files,
                                     ae['corrupt_rec']: 0,
                                     ae['corrupt_cls']: 0})
                         utils.montage(recon.reshape([-1] + crop_shape),
-                                      'recon_pascal_%08d.png' % t_i)
+                                      output_path + '/recon_pascal_%08d.png' % t_i)
                     else:
                         z_pascal = np.append(z_pascal, z_codes, axis=0)
                         sm_pascal = np.append(sm_pascal, sm_codes, axis=0)
@@ -798,7 +798,7 @@ def train_vae(files,
                         alpha=0.9,
                         cmap='gist_rainbow')
 
-                fig.savefig('./z_feat_pascal.png', transparent=True)
+                fig.savefig(output_path + '/z_feat_pascal.png', transparent=True)
                 plt.clf()
 
                 # Test on ShapeNet test samples
@@ -835,7 +835,7 @@ def train_vae(files,
                                         ae['corrupt_rec']: 0,
                                         ae['corrupt_cls']: 0})
                         utils.montage(recon.reshape([-1] + crop_shape),
-                                      'recon_shapenet_%08d.png' % t_i)
+                                      output_path + '/recon_shapenet_%08d.png' % t_i)
                     else:
                         z_shapenet = np.append(z_shapenet, z_codes, axis=0)
                         sm_shapenet = np.append(sm_shapenet, sm_codes, axis=0)
@@ -866,7 +866,7 @@ def train_vae(files,
                         alpha=0.9,
                         cmap='gist_rainbow')
 
-                fig.savefig('./z_feat_shapenet.png', transparent=True)
+                fig.savefig(output_path + '/z_feat_shapenet.png', transparent=True)
                 plt.clf()
 
                 t_i += 1
@@ -874,8 +874,9 @@ def train_vae(files,
             if step_i % save_step == 0:
 
                 # Save the variables to disk.
-                saver.save(sess, "./" + ckpt_name,
-                           global_step=step_i,
+                # We should set global_step=batch_i if we want several ckpt
+                saver.save(sess, output_path + "/" + ckpt_name,
+                           global_step=None,
                            write_meta_graph=False)
                 if softmax:
                     acc = sess.run(
