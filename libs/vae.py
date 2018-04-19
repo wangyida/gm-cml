@@ -14,7 +14,7 @@ Copyright reserved for Yida Wang from BUPT.
 import tensorflow as tf
 from libs.batch_norm import batch_norm
 from libs import utils
-from network import squeezenet
+from libs import squeezenet
 
 slim = tf.contrib.slim
 from tensorflow.contrib.slim.python.slim.nets import alexnet
