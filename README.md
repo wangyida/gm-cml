@@ -11,8 +11,10 @@
 Copyright (c) 2017, Yida Wang
 All rights reserved.
 
+Please see our [paper](https://arxiv.org/abs/1705.08590) for more details about the method and data.
+
 ## Author info
-Yida Wang, Ph.D candidate in Technischen Universität München (TUM), Munchen, Deutschland.
+Yida Wang, Ph.D candidate in Technischen Universität München (TUM), München, Deutschland.
 [read more](https://wangyida.github.io/)
 
 ## Figures in the paper
