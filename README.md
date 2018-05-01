@@ -1,77 +1,35 @@
 # Generative Model with Coordinate Metric Learning for Object Recognition Based on 3D Models
-TensorFlow implementation for Adaptive noise assisted Conjugating Generative Model based on Conditional Variational Autoencoder, this project is implemented based on VAE code pool of Parag K. Mital from Kadenze course on Tensorflow and modified by Yida Wang for the paper of 'Conjugating Generative Model for Object Recognition Based on 3D Models'.
+  One of the bottlenecks in acquiring a perfect database for deep learning is the tedious process of collecting and labeling data.
+  In this paper, we propose a generative model trained with synthetic images rendered from 3D models which can reduce the burden on collecting real training data and make the bac  kground conditions more realistic.
+  Our architecture is composed of two sub-networks: a semantic foreground object reconstruction network based on Bayesian inference, and a classification network based on multi-t  riplet cost training for avoiding over-fitting on monotone synthetic object surface and utilizing accurate information of synthetic images like object poses and lightning condi  tions which are helpful for recognizing regular photos.
+  Firstly, our generative model with metric learning utilizes additional foreground object channels generated from semantic foreground object reconstruction sub-network for recog  nizing the original input images.
+  Multi-triplet cost function based on poses is used for metric learning which makes it possible to train an effective categorical classifier purely based on synthetic data.
+  Secondly, we design a coordinate training strategy with the help of adaptive noise applied on the inputs of both of the concatenated sub-networks to make them benefit from each   other and avoid inharmonious parameter tuning due to different convergence speed of two sub-networks.
+  Our architecture achieves the state of the art accuracy of 50.5% on the ShapeNet database with data migration obstacle from synthetic images to real photos.
+  This pipeline makes it applicable to do recognition on real images only based on 3D models.
 
 Copyright (c) 2017, Yida Wang
 All rights reserved.
 
-## Figures in the paper
-### Method Pipeline
+## Author info
+Yida Wang, Ph.D candidate in Technischen Universität München (TUM), Munchen, Deutschland.
+[read more](https://wangyida.github.io/)
 
+## Figures in the paper
+### Pipeline
 This is the basic pipeline for AD-CGM
 
-![Pipeline](https://github.com/wangyida/pynote/blob/master/vae/images/pipeline_tip.jpg)
+![Pipeline](images/pipeline_tip.png)
 
-### Target
+Our GM-CML is a concatenated architecture which is shown as reconstruction sub-network and classification sub-network in below:
 
-There are two set of rendered images from 3D models, here we use *VTK* for rendering.
+![reconstruction sub-network](images/network_rec.png)
+![classification sub-network](images/network_cls.png)
 
-![](https://github.com/wangyida/pynote/blob/master/vae/images/target.jpg)
+### Samples for the triplet training
 
-### Results on ShapeNet
+![Nearest Neighbor Classification results](images/nn_triplet.png)
 
-Those images are input of rendered images from ShapeNet and the reconstruction result of synthetic images.
-
-![Reconstruction](https://github.com/wangyida/pynote/blob/master/vae/images/shapenet_recon.jpg)
-
-final distribution of AD-CGM from classification sub-network visualized using PCA
-
-![ShapeNet](https://github.com/wangyida/pynote/blob/master/vae/images/lowdim_ADCGM_shapenet.jpg)
-
-### Results on ImageNet
-
-The reconstruction result of real images from ImageNet.
-
-![Reconstruction](https://github.com/wangyida/pynote/blob/master/vae/images/imagenet_recon.jpg)
-
-final distribution of AD-CGM from classification sub-network visualized using PCA.
-
-![ImageNet](https://github.com/wangyida/pynote/blob/master/vae/images/lowdim_ADCGM_imagenet.jpg)
-
-
-## Author info
-
-### Basic info
-
-Yida Wang
-
-Email: yidawang.cn@gmail.com
-
-### Publications
-
-[ZigzagNet: Efficient Deep Learning for Real Object Recognition Based on 3D Models](https://www.researchgate.net/profile/Yida_Wang/publications?sorting=recentlyAdded)
-
-[Self-restraint Object Recognition by Model Based CNN Learning](http://ieeexplore.ieee.org/document/7532438/)
-
-[Face Recognition Using Local PCA Filters](http://link.springer.com/chapter/10.1007%2F978-3-319-25417-3_5)
-
-[CNTK on Mac: 2D Object Restoration and Recognition Based on 3D Model](https://www.microsoft.com/en-us/research/academic-program/microsoft-open-source-challenge/)
-
-[Large-Scale 3D Shape Retrieval from ShapeNet Core55](https://shapenet.cs.stanford.edu/shrec16/shrec16shapenet.pdf)
-
-### Extracurriculars
-
-Contributor for OpenCV and [tiny-dnn](https://github.com/tiny-dnn/tiny-dnn);
-
-Google Summer of Codes successor from 2015 to 2016
-
-### Personal Links
-
-[ResearchGate](https://www.researchgate.net/profile/Yida_Wang), [Github](https://github.com/wangyida), [GSoC 2016](https://summerofcode.withgoogle.com/archive/2016/projects/4623962327744512/), [GSoC 2015](https://www.google-melange.com/archive/gsoc/2015/orgs/opencv/projects/wangyida.html)
-
-***
-
-## Additional Libs
-There is also implementation of ZigzagNet and SqueezeNet for compact deep learning for classification.
 
 ## Codes Explanation
 
