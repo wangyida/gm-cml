@@ -19,7 +19,7 @@ Yida Wang, Ph.D candidate in Technischen Universität München (TUM), München, 
 
 ## Figures in the paper
 ### Pipeline
-This is the basic pipeline for AD-CGM
+This is the basic pipeline for Generative Model with Coordinate Metric Learning
 
 ![Pipeline](images/pipeline_tip.png)
 
