@@ -31,21 +31,6 @@ def pca(
     # PCs are already sorted by descending order
     # of the singular values (i.e. by the
     # proportion of total variance they explain)
-    '''
-    # Method 1 reconstruction:
-    # if we use all of the PCs we can reconstruct the original signal perfectly.
-
-    Mhat1 = np.dot(U, np.dot(S, V.T))
-    print('Using all PCs, MSE = %.6G' %(np.mean((features.values - Mhat)**2)))
-
-    # Method 2 weak reconstruction:
-    # if we use only the first few PCs the reconstruction is less accurate，
-    # the dimention is remained the same sa before, but some information is
-    # lost in this reconstruction process.
-    Mhat2 = np.dot(U[:, :dim_remain], np.dot(S[:dim_remain, :dim_remain], V[:,:dim_remain].T))
-    print('Not a Number is located there: ', np.where(np.isnan(features.values) == True))
-    print('Using first few PCs, MSE = %.6G' %(np.mean((features.values - Mhat2)**2)))
-    '''
     # Method 3 dimention reduction:
     # if we use only the first few PCs the reconstruction is less accurate,
     # the dimension is also recuded to (or to say projected on) into another

@@ -401,8 +401,8 @@ def train_vae(files,
                 ax.scatter(
                         z_viz[:, 0],
                         z_viz[:, 1],
-                        c=labels_imagenet,
-                        alpha=0.9,
+                        c=labels_imagenet[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
                 sm_viz, V = pca(sm_imagenet, dim_remain=2)
                 ax = fig.add_subplot(122)
@@ -410,15 +410,15 @@ def train_vae(files,
                 ax.scatter(
                         sm_viz[:, 0],
                         sm_viz[:, 1],
-                        c=labels_imagenet,
-                        alpha=0.9,
+                        c=labels_imagenet[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
 
                 fig.savefig(output_path + '/z_feat_imagenet.png', transparent=True)
                 plt.clf()
 
                 # Test on PASCAL 2012 samples
-                with open('../list_annotated_pascal.csv', 'r') as csvfile:
+                with open('./list_annotated_pascal.csv', 'r') as csvfile:
                     spamreader = csv.reader(csvfile)
                     rows = list(spamreader)
                     totalrows = len(rows)
@@ -467,8 +467,8 @@ def train_vae(files,
                 ax.scatter(
                         z_viz[:, 0],
                         z_viz[:, 1],
-                        c=labels_pascal,
-                        alpha=0.9,
+                        c=labels_pascal[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
                 sm_viz, V = pca(sm_pascal, dim_remain=2)
                 ax = fig.add_subplot(122)
@@ -476,15 +476,15 @@ def train_vae(files,
                 ax.scatter(
                         sm_viz[:, 0],
                         sm_viz[:, 1],
-                        c=labels_pascal,
-                        alpha=0.9,
+                        c=labels_pascal[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
 
                 fig.savefig(output_path + '/z_feat_pascal.png', transparent=True)
                 plt.clf()
 
                 # Test on ShapeNet test samples
-                with open('../list_annotated_img_test.csv', 'r') as csvfile:
+                with open('./list_annotated_img_test.csv', 'r') as csvfile:
                     spamreader = csv.reader(csvfile)
                     rows = list(spamreader)
                     totalrows = len(rows)
@@ -535,8 +535,8 @@ def train_vae(files,
                 ax.scatter(
                         z_viz[:, 0],
                         z_viz[:, 1],
-                        c=labels_shapenet,
-                        alpha=0.9,
+                        c=labels_shapenet[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
                 sm_viz, V = pca(sm_shapenet, dim_remain=2)
                 ax = fig.add_subplot(122)
@@ -544,8 +544,8 @@ def train_vae(files,
                 ax.scatter(
                         sm_viz[:, 0],
                         sm_viz[:, 1],
-                        c=labels_shapenet,
-                        alpha=0.9,
+                        c=labels_shapenet[:, 0],
+                        alpha=0.4,
                         cmap='gist_rainbow')
 
                 fig.savefig(output_path + '/z_feat_shapenet.png', transparent=True)

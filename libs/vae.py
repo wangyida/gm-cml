@@ -14,7 +14,7 @@ Copyright reserved for Yida Wang from BUPT.
 import tensorflow as tf
 from libs.batch_norm import batch_norm
 from libs import utils
-from network import squeezenet
+from libs import squeezenet
 
 slim = tf.contrib.slim
 from tensorflow.contrib.slim.python.slim.nets import alexnet
@@ -278,7 +278,7 @@ def VAE(input_shape=[None, 784],
         if classifier == 'squeezenet':
             predictions, net = squeezenet.squeezenet(
                         y_concat, num_classes=13)
-        if classifier == 'zigzagnet':
+        elif classifier == 'zigzagnet':
             predictions, net = squeezenet.zigzagnet(
                         y_concat, num_classes=13)
         elif classifier == 'alexnet_v2':
@@ -294,10 +294,9 @@ def VAE(input_shape=[None, 784],
             predictions, end_points = inception.inception_v3(
                         y_concat, num_classes=13)
 
-        label_onehot = tf.one_hot(label, 13, 1, 0)
-        slim.losses.softmax_cross_entropy(predictions, label_onehot)
-        cost_s = slim.losses.get_total_loss()
-        # cost = tf.reduce_mean(cost + cost_s)
+        label_onehot = tf.one_hot(label, 13, axis=-1, dtype=tf.int32)
+        cost_s = tf.losses.softmax_cross_entropy(label_onehot, predictions)
+        cost_s = tf.reduce_mean(cost_s)
         acc = tf.nn.in_top_k(predictions, label, 1)
     else:
         predictions = tf.one_hot(label, 13, 1, 0)
